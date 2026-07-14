@@ -1,49 +1,33 @@
 # Campus Analytics Hub
 
-A full-stack web app for tracking courses, assignments, study hours, and GPA —
-built as a portfolio project to demonstrate full-stack skills (React + TypeScript,
-FastAPI, PostgreSQL) for Summer 2027 internship applications.
+A full-stack student dashboard for tracking courses, assignments, study hours, and GPA — built as a portfolio project to demonstrate real full-stack and database design skills for internship applications.
 
-## Problem it solves
-
-Students juggle deadlines, study time, and grades across scattered tools
-(notes apps, spreadsheets, memory). Campus Analytics Hub puts all three in one
-dashboard so a student can answer, at a glance: *What's due? Am I studying
-enough? Am I on track for my target grade?*
+**Live demo:** _add your deployed link here once you deploy it_
+**Screenshots:** _add screenshots here_
 
 ## Tech stack
 
-| Layer    | Technology            |
-| -------- | ---------------------- |
-| Frontend | React + TypeScript (Vite) + Tailwind CSS |
-| Backend  | FastAPI (Python) — *coming Week 2* |
-| Database | PostgreSQL — *coming Week 2* |
+| Layer    | Tech                                  |
+| -------- | -------------------------------------- |
+| Frontend | React + TypeScript, Vite, Tailwind CSS, React Router, Recharts |
+| Backend  | FastAPI (Python), SQLAlchemy, JWT auth (python-jose), bcrypt password hashing |
+| Database | PostgreSQL in production, SQLite by default for local development |
 
-## Current features (Day 1)
+## Features
 
-- Dashboard page with:
-  - Current GPA (stamp-style badge)
-  - Target grade
-  - Assignments due this week
-  - Weekly study hours vs. goal
-  - Study streak
-  - Upcoming assignments table (course code, title, due date, status)
-  - Weekly study-hours bar chart with a goal line
-- Reusable components: `DashboardCard`, `AssignmentTable`
-- Data is currently hardcoded sample data — wired to the FastAPI backend
-  in Week 2 once auth and the database are in place.
+- Email/password signup and login, with passwords hashed (bcrypt) and JWT-based session auth
+- Course management (add, edit target grade / credits, delete)
+- Assignment tracking per course, with a status you can cycle through (pending → due soon → done)
+- Study session logging, rolled up into a weekly trend chart
+- GPA calculated server-side as a credit-weighted average across graded assignments
+- Dashboard summary endpoint that powers the stat cards and chart in one call
 
-## Planned features
+## Why each feature exists
 
-- [ ] User login/signup (JWT auth)
-- [ ] Course management (CRUD)
-- [ ] Assignment tracking (CRUD)
-- [ ] Study session logging
-- [ ] GPA calculator
-- [ ] Multi-page routing (`/login`, `/courses`, `/assignments`, `/study`, `/analytics`)
-- [ ] Deployed live version
-- [ ] CSV upload (stretch)
-- [ ] AI study recommendations (stretch)
+- **Assignment tracker** → prevents missed deadlines
+- **Study hours log** → surfaces whether time invested matches the workload
+- **GPA calculator** → makes current standing and target grade gaps visible
+- **Dashboard** → gives a single glance at everything above, instead of five separate pages
 
 ## Project structure
 
@@ -51,40 +35,89 @@ enough? Am I on track for my target grade?*
 campus-analytics-hub/
 ├── frontend/
 │   ├── src/
-│   │   ├── components/
-│   │   │   ├── DashboardCard.tsx
-│   │   │   └── AssignmentTable.tsx
-│   │   ├── pages/
-│   │   │   └── Dashboard.tsx
-│   │   ├── App.tsx
-│   │   ├── main.tsx
-│   │   └── index.css
-│   ├── index.html
-│   ├── package.json
-│   ├── tailwind.config.js
-│   ├── postcss.config.js
-│   ├── tsconfig.json
-│   └── vite.config.ts
-├── backend/            # added Week 2
+│   │   ├── components/       # Navbar, DashboardCard, GradeStamp, AssignmentTable
+│   │   ├── pages/             # Login, Register, Dashboard, Courses, Assignments
+│   │   ├── services/api.ts    # Axios client + typed API calls
+│   │   └── App.tsx            # Routes + protected-route logic
+│   └── package.json
+├── backend/
+│   ├── app/
+│   │   ├── routers/           # auth, courses, assignments, study_sessions, dashboard
+│   │   ├── models/             # SQLAlchemy models: User, Course, Assignment, StudySession
+│   │   ├── schemas/            # Pydantic request/response schemas
+│   │   ├── database.py         # Engine, session, Base
+│   │   └── auth_utils.py       # Password hashing + JWT
+│   ├── main.py                 # FastAPI app, CORS, router registration
+│   └── requirements.txt
 └── README.md
 ```
 
-## Running locally
+## Database design
+
+**users** — id, name, email (unique), password_hash, created_at
+**courses** — id, user_id (FK → users), course_name, credits, target_grade
+**assignments** — id, course_id (FK → courses), title, due_date, status, score, max_score
+**study_sessions** — id, course_id (FK → courses), hours, date
+
+All ownership is enforced at the API layer — a user can only see or modify courses (and anything linked to them) where `user_id` matches their own JWT.
+
+## Running it locally
+
+### 1. Backend
+
+```bash
+cd backend
+python3 -m venv venv
+source venv/bin/activate        # Windows: venv\Scripts\activate
+pip install -r requirements.txt
+cp .env.example .env            # defaults to local SQLite, no changes needed to start
+uvicorn main:app --reload
+```
+
+The API is now running at `http://localhost:8000`. Interactive docs (auto-generated by FastAPI) are at `http://localhost:8000/docs` — useful for testing endpoints without the frontend.
+
+### 2. Frontend
 
 ```bash
 cd frontend
 npm install
+cp .env.example .env             # points VITE_API_URL at localhost:8000 by default
 npm run dev
 ```
 
-Then open the local URL Vite prints (usually `http://localhost:5173`).
+Open `http://localhost:5173`, register an account, and you're in.
 
+### 3. Switching to PostgreSQL
 
-## Roadmap
+By default the backend uses a local SQLite file (`campus.db`) so there's zero setup friction. To match the plan's actual Postgres design:
 
-| Phase | Dates | Focus |
-| ----- | ----- | ----- |
-| 1 | Jul 14 – Jul 31 | Learn React + FastAPI, build frontend + backend basics |
-| 2 | Aug 1 – Aug 20 | Backend + database (auth, CRUD, PostgreSQL) |
-| 3 | Aug 21 – Sep 10 | Full frontend dashboard wired to live data |
-| 4 | Sep 11 – Sep 20 | Deploy + polish |
+1. Install Postgres locally (or use a free hosted instance — Neon, Supabase, and Railway all have free tiers).
+2. Create a database: `createdb campus_analytics_hub`
+3. In `backend/.env`, set:
+   ```
+   DATABASE_URL=postgresql://user:password@localhost:5432/campus_analytics_hub
+   ```
+4. Restart the backend. Tables are created automatically on startup.
+
+## How authentication works (interview-ready explanation)
+
+1. On register, the password is hashed with bcrypt before it ever touches the database — the plaintext password is never stored.
+2. On login, the submitted password is checked against the stored hash. If it matches, the server issues a JWT containing the user's id, signed with a server-side secret.
+3. The frontend stores that JWT in `localStorage` and attaches it as an `Authorization: Bearer <token>` header on every subsequent request.
+4. Protected backend routes decode and verify that token via a FastAPI dependency (`get_current_user`) before running any query — so every query is automatically scoped to the logged-in user.
+
+## What's next (not yet built)
+
+- CSV import for bulk-adding assignments
+- Email reminders for upcoming due dates
+- AI-generated study recommendations
+- Edit-in-place for assignments (currently: add + cycle status + delete)
+- Alembic migrations (schema currently created via `create_all`, fine for an MVP but not for evolving a production schema)
+
+## Deployment (suggested, free-tier friendly)
+
+- **Frontend:** Vercel or Netlify — point it at the `frontend/` folder, build command `npm run build`, output `dist/`
+- **Backend:** Render or Railway — point it at the `backend/` folder, start command `uvicorn main:app --host 0.0.0.0 --port $PORT`
+- **Database:** Neon or Supabase (managed Postgres, free tier)
+
+Once deployed, update `VITE_API_URL` in the frontend's environment variables to point at your live backend URL, and update the CORS `allow_origins` list in `backend/main.py` to include your live frontend URL.
